@@ -449,6 +449,11 @@ export class Framer implements INodeType {
 				default: 'createPreview',
 			},
 			{
+				// Split by resource (rather than one shared show+hide) because 'getMany' means
+				// something different per resource: Collection:getMany lists ALL collections (no ID),
+				// Item:getMany lists items OF one collection (ID required). A single displayOptions.hide
+				// can't express that distinction since hide conditions are OR'd across keys — combining
+				// them here previously hid this field for Item:getMany too, whenever operation matched.
 				displayName: 'Collection ID',
 				name: 'collectionId',
 				type: 'string',
@@ -456,10 +461,23 @@ export class Framer implements INodeType {
 				default: '',
 				displayOptions: {
 					show: {
-						resource: ['collection', 'item'],
-						operation: ['get', 'getFields', 'setFields', 'getMany', 'addOrUpdate', 'remove', 'setOrder'],
+						resource: ['collection'],
+						operation: ['get', 'getFields', 'setFields'],
 					},
-					hide: { resource: ['collection'], operation: ['getMany'] },
+				},
+				description: 'The ID of the CMS collection',
+			},
+			{
+				displayName: 'Collection ID',
+				name: 'collectionId',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: {
+					show: {
+						resource: ['item'],
+						operation: ['getMany', 'addOrUpdate', 'remove', 'setOrder'],
+					},
 				},
 				description: 'The ID of the CMS collection',
 			},
