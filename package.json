@@ -1,0 +1,62 @@
+{
+  "name": "n8n-nodes-framer-cms",
+  "version": "0.1.0",
+  "description": "n8n community node for the official Framer Server API. CMS read/write, publish, deploy, plus a webhook-compatible Site Manager compound resource.",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "n8n-nodes",
+    "framer",
+    "framer-api",
+    "cms"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/emilbou/n8n-nodes-framer-cms",
+  "author": {
+    "name": "emilbou"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emilbou/n8n-nodes-framer-cms.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials --ext .ts && eslint package.json",
+    "lintfix": "eslint nodes credentials --ext .ts --fix",
+    "prepublishOnly": "npm run build && npm run lint"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/FramerApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Framer/Framer.node.js"
+    ]
+  },
+  "dependencies": {
+    "framer-api": "^0.1.18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/parser": "~7.15",
+    "eslint": "^8.56.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^4.0.2",
+    "n8n-workflow": "^1.82.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}

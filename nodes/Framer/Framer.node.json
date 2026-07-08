@@ -1,0 +1,18 @@
+{
+    "node": "n8n-nodes-base.framer",
+    "nodeVersion": "1.0",
+    "codexVersion": "1.0",
+    "categories": ["Marketing", "Productivity"],
+    "resources": {
+        "credentialDocumentation": [
+            {
+                "url": "https://www.framer.com/developers/server-api-introduction"
+            }
+        ],
+        "primaryDocumentation": [
+            {
+                "url": "https://github.com/emilbou/n8n-nodes-framer-cms"
+            }
+        ]
+    }
+}

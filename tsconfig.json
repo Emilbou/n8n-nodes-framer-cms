@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"target": "es2020",
+		"lib": ["es2020"],
+		"module": "commonjs",
+		"moduleResolution": "node",
+		"outDir": "./dist",
+		"rootDir": ".",
+		"strict": true,
+		"noImplicitAny": true,
+		"useUnknownInCatchVariables": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"declaration": true,
+		"sourceMap": true,
+		"skipLibCheck": true
+	},
+	"include": ["credentials/**/*.ts", "nodes/**/*.ts", "index.ts"],
+	"exclude": ["node_modules", "dist", "**/*.test.ts"]
+}
