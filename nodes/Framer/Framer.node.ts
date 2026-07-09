@@ -82,224 +82,219 @@ async function runSiteManager(
 		return all.find((c) => (c.name || '').toLowerCase().includes(tgt));
 	};
 
-	try {
-		if (operation === 'readStructure') {
-			const cols = await getCollections();
-			const details: IDataObject[] = [];
-			for (const col of cols) {
-				let fields: IDataObject[] = [];
-				let items: IDataObject[] = [];
-				try {
-					fields = (await col.getFields()) as unknown as IDataObject[];
-				} catch (e) {
-					fields = [{ error: getErrorMessage(e) }];
-				}
-				try {
-					items = (await col.getItems()) as unknown as IDataObject[];
-				} catch {
-					items = [];
-				}
-				details.push({
-					name: col.name,
-					id: col.id,
-					slug: (col as unknown as IDataObject).slug,
-					itemCount: Array.isArray(items) ? items.length : 0,
-					fields: Array.isArray(fields)
-						? fields.map((f) => ({ name: f.name, type: f.type, id: f.id }))
-						: fields,
-				});
+	if (operation === 'readStructure') {
+		const cols = await getCollections();
+		const details: IDataObject[] = [];
+		for (const col of cols) {
+			let fields: IDataObject[] = [];
+			let items: IDataObject[] = [];
+			try {
+				fields = (await col.getFields()) as unknown as IDataObject[];
+			} catch (e) {
+				fields = [{ error: getErrorMessage(e) }];
 			}
-			result.collections = details;
-		} else if (operation === 'readPages') {
-			const paths = data.path ? [data.path] : ((data.paths as unknown[]) || []);
-			const cols = await getCollections();
-			const pages: IDataObject[] = [];
-			for (const col of cols) {
-				const items = (await col.getItems()) as unknown as IDataObject[];
-				for (const it of items) {
-					const slug = (it.slug as string) || '';
-					const match =
-						paths.length === 0 ||
-						paths.some(
-							(p) =>
-								p === '/' + slug ||
-								p === slug ||
-								slug.includes(String(p).replace('/', '')),
-						);
-					if (match) {
-						pages.push({ collection: col.name, slug: it.slug, id: it.id, fieldData: it.fieldData || it });
-					}
-				}
+			try {
+				items = (await col.getItems()) as unknown as IDataObject[];
+			} catch {
+				items = [];
 			}
-			result.pages = pages;
-			if (pages.length === 0) result.note = 'Nenhum item CMS encontrado.';
-		} else if (operation === 'readCms') {
-			const col = await findCollection(data.collection);
-			if (col) {
-				const items = (await col.getItems()) as unknown as IDataObject[];
-				const fields = (await col.getFields()) as unknown as IDataObject[];
-				result.collection = {
-					name: col.name,
-					id: col.id,
-					fields: (Array.isArray(fields) ? fields : []).map((f) => f.name),
-				};
-				result.items = items.map((it) => ({ slug: it.slug, id: it.id, fieldData: it.fieldData || it }));
-			} else {
-				const all = await getCollections();
-				result.error = 'Colecao nao encontrada.';
-				result.availableCollections = all.map((c) => c.name);
-			}
-		} else if (operation === 'readCmsItem') {
-			const col = await findCollection(data.collection);
-			if (col) {
-				const items = (await col.getItems()) as unknown as IDataObject[];
-				const found = items.find((i) => i.slug === data.slug);
-				if (found) {
-					result.item = { slug: found.slug, id: found.id, fieldData: found.fieldData || found };
-				} else {
-					result.error = 'Item nao encontrado.';
-					result.availableSlugs = items.map((i) => i.slug);
-				}
-			} else {
-				result.error = 'Colecao nao encontrada.';
-			}
-		} else if (operation === 'auditSeo') {
-			const cols = await getCollections();
-			const issues: IDataObject[] = [];
-			const audits: IDataObject[] = [];
-			for (const col of cols) {
-				const items = (await col.getItems()) as unknown as IDataObject[];
-				const fields = (await col.getFields()) as unknown as IDataObject[];
-				const fnames = (Array.isArray(fields) ? fields : []).map((f) =>
-					((f.name as string) || '').toLowerCase(),
-				);
-				const hasMT = fnames.some((f) => f.includes('meta') && f.includes('title'));
-				const hasMD = fnames.some((f) => f.includes('meta') && f.includes('desc'));
-				for (const it of items) {
-					const fd = (it.fieldData as IDataObject) || {};
-					const aud: IDataObject = { collection: col.name, slug: it.slug };
-					const mt = (fd['meta-title'] || fd['metaTitle'] || fd['meta_title']) as string | undefined;
-					if (mt) {
-						aud.meta_title = mt;
-						if (mt.length > 60) issues.push({ slug: it.slug, issue: 'meta_title_too_long', severity: 'medium' });
-					} else if (hasMT) {
-						issues.push({ slug: it.slug, issue: 'meta_title_missing', severity: 'high' });
-					}
-					const md = (fd['meta-description'] || fd['metaDescription'] || fd['meta_description']) as
-						| string
-						| undefined;
-					if (md) {
-						aud.meta_description = md;
-						if (md.length > 160) issues.push({ slug: it.slug, issue: 'meta_desc_too_long', severity: 'medium' });
-					} else if (hasMD) {
-						issues.push({ slug: it.slug, issue: 'meta_desc_missing', severity: 'high' });
-					}
-					aud.fieldData = fd;
-					audits.push(aud);
-				}
-			}
-			result.audit = { total_items: audits.length, total_issues: issues.length, issues, items: audits };
-		} else if (operation === 'readChanges') {
-			result.changes = (await framer.getChangedPaths()) as unknown as IDataObject;
-		} else if (operation === 'updatePages') {
-			const pagesInput = (data.pages as IDataObject[]) || [];
-			const cols = await getCollections();
-			const pgCol = cols.find((c) => {
-				const n = (c.name || '').toLowerCase();
-				return n.includes('page') || n.includes('pagina') || n.includes('landing');
+			details.push({
+				name: col.name,
+				id: col.id,
+				slug: (col as unknown as IDataObject).slug,
+				itemCount: Array.isArray(items) ? items.length : 0,
+				fields: Array.isArray(fields)
+					? fields.map((f) => ({ name: f.name, type: f.type, id: f.id }))
+					: fields,
 			});
-			const updates: IDataObject[] = [];
-			if (!pgCol) {
-				updates.push({ error: 'colecao de paginas nao encontrada' });
-			} else {
-				const items = (await pgCol.getItems()) as unknown as IDataObject[];
-				for (const pg of pagesInput) {
-					const slug = ((pg.path as string) || '').replace(/^\//, '');
-					const existing = items.find((i) => i.slug === slug || i.slug === pg.path);
-					const fieldData: IDataObject = {};
-					if (pg.meta_title) fieldData['meta-title'] = pg.meta_title;
-					if (pg.meta_description) fieldData['meta-description'] = pg.meta_description;
-					if (pg.title) fieldData.title = pg.title;
-					if (existing) {
-						await pgCol.addItems([{ id: existing.id as string, fieldData } as never]);
-						updates.push({ path: pg.path, updated: true, id: existing.id });
-					} else {
-						updates.push({
-							path: pg.path,
-							error: 'pagina nao encontrada',
-							availableSlugs: items.map((i) => i.slug),
-						});
-					}
+		}
+		result.collections = details;
+	} else if (operation === 'readPages') {
+		const paths = data.path ? [data.path] : ((data.paths as unknown[]) || []);
+		const cols = await getCollections();
+		const pages: IDataObject[] = [];
+		for (const col of cols) {
+			const items = (await col.getItems()) as unknown as IDataObject[];
+			for (const it of items) {
+				const slug = (it.slug as string) || '';
+				const match =
+					paths.length === 0 ||
+					paths.some(
+						(p) =>
+							p === '/' + slug ||
+							p === slug ||
+							slug.includes(String(p).replace('/', '')),
+					);
+				if (match) {
+					pages.push({ collection: col.name, slug: it.slug, id: it.id, fieldData: it.fieldData || it });
 				}
 			}
-			result.updates = updates;
-		} else if (operation === 'createPage') {
-			const pg = (data.page as IDataObject) || data;
-			const pgCol =
-				(await findCollection('page')) || (await findCollection('pagina')) || (await findCollection('landing'));
-			if (pgCol) {
-				await pgCol.addItems([
+		}
+		result.pages = pages;
+		if (pages.length === 0) result.note = 'No CMS items found.';
+	} else if (operation === 'readCms') {
+		const col = await findCollection(data.collection);
+		if (col) {
+			const items = (await col.getItems()) as unknown as IDataObject[];
+			const fields = (await col.getFields()) as unknown as IDataObject[];
+			result.collection = {
+				name: col.name,
+				id: col.id,
+				fields: (Array.isArray(fields) ? fields : []).map((f) => f.name),
+			};
+			result.items = items.map((it) => ({ slug: it.slug, id: it.id, fieldData: it.fieldData || it }));
+		} else {
+			const all = await getCollections();
+			result.error = 'Collection not found.';
+			result.availableCollections = all.map((c) => c.name);
+		}
+	} else if (operation === 'readCmsItem') {
+		const col = await findCollection(data.collection);
+		if (col) {
+			const items = (await col.getItems()) as unknown as IDataObject[];
+			const found = items.find((i) => i.slug === data.slug);
+			if (found) {
+				result.item = { slug: found.slug, id: found.id, fieldData: found.fieldData || found };
+			} else {
+				result.error = 'Item not found.';
+				result.availableSlugs = items.map((i) => i.slug);
+			}
+		} else {
+			result.error = 'Collection not found.';
+		}
+	} else if (operation === 'auditSeo') {
+		const cols = await getCollections();
+		const issues: IDataObject[] = [];
+		const audits: IDataObject[] = [];
+		for (const col of cols) {
+			const items = (await col.getItems()) as unknown as IDataObject[];
+			const fields = (await col.getFields()) as unknown as IDataObject[];
+			const fnames = (Array.isArray(fields) ? fields : []).map((f) =>
+				((f.name as string) || '').toLowerCase(),
+			);
+			const hasMT = fnames.some((f) => f.includes('meta') && f.includes('title'));
+			const hasMD = fnames.some((f) => f.includes('meta') && f.includes('desc'));
+			for (const it of items) {
+				const fd = (it.fieldData as IDataObject) || {};
+				const aud: IDataObject = { collection: col.name, slug: it.slug };
+				const mt = (fd['meta-title'] || fd['metaTitle'] || fd['meta_title']) as string | undefined;
+				if (mt) {
+					aud.meta_title = mt;
+					if (mt.length > 60) issues.push({ slug: it.slug, issue: 'meta_title_too_long', severity: 'medium' });
+				} else if (hasMT) {
+					issues.push({ slug: it.slug, issue: 'meta_title_missing', severity: 'high' });
+				}
+				const md = (fd['meta-description'] || fd['metaDescription'] || fd['meta_description']) as
+					| string
+					| undefined;
+				if (md) {
+					aud.meta_description = md;
+					if (md.length > 160) issues.push({ slug: it.slug, issue: 'meta_desc_too_long', severity: 'medium' });
+				} else if (hasMD) {
+					issues.push({ slug: it.slug, issue: 'meta_desc_missing', severity: 'high' });
+				}
+				aud.fieldData = fd;
+				audits.push(aud);
+			}
+		}
+		result.audit = { total_items: audits.length, total_issues: issues.length, issues, items: audits };
+	} else if (operation === 'readChanges') {
+		result.changes = (await framer.getChangedPaths()) as unknown as IDataObject;
+	} else if (operation === 'updatePages') {
+		const pagesInput = (data.pages as IDataObject[]) || [];
+		const cols = await getCollections();
+		const pgCol = cols.find((c) => {
+			const n = (c.name || '').toLowerCase();
+			return n.includes('page') || n.includes('pagina') || n.includes('landing');
+		});
+		const updates: IDataObject[] = [];
+		if (!pgCol) {
+			updates.push({ error: 'pages collection not found' });
+		} else {
+			const items = (await pgCol.getItems()) as unknown as IDataObject[];
+			for (const pg of pagesInput) {
+				const slug = ((pg.path as string) || '').replace(/^\//, '');
+				const existing = items.find((i) => i.slug === slug || i.slug === pg.path);
+				const fieldData: IDataObject = {};
+				if (pg.meta_title) fieldData['meta-title'] = pg.meta_title;
+				if (pg.meta_description) fieldData['meta-description'] = pg.meta_description;
+				if (pg.title) fieldData.title = pg.title;
+				if (existing) {
+					await pgCol.addItems([{ id: existing.id as string, fieldData } as never]);
+					updates.push({ path: pg.path, updated: true, id: existing.id });
+				} else {
+					updates.push({
+						path: pg.path,
+						error: 'page not found',
+						availableSlugs: items.map((i) => i.slug),
+					});
+				}
+			}
+		}
+		result.updates = updates;
+	} else if (operation === 'createPage') {
+		const pg = (data.page as IDataObject) || data;
+		const pgCol =
+			(await findCollection('page')) || (await findCollection('pagina')) || (await findCollection('landing'));
+		if (pgCol) {
+			await pgCol.addItems([
+				{
+					slug: pg.slug as string,
+					fieldData: {
+						title: pg.title,
+						'meta-title': pg.meta_title,
+						'meta-description': pg.meta_description,
+					},
+				} as never,
+			]);
+			result.created = { slug: pg.slug, title: pg.title, addedToCms: true };
+		} else {
+			result.created = { slug: pg.slug, addedToCms: false, error: 'pages collection not found' };
+		}
+	} else if (operation === 'createBlogPosts') {
+		const posts = (data.posts as IDataObject[]) || [];
+		const blogCol = (await findCollection('blog')) || (await findCollection('post'));
+		if (blogCol) {
+			const created: IDataObject[] = [];
+			for (const bp of posts) {
+				await blogCol.addItems([
 					{
-						slug: pg.slug as string,
+						slug: bp.slug as string,
 						fieldData: {
-							title: pg.title,
-							'meta-title': pg.meta_title,
-							'meta-description': pg.meta_description,
+							title: bp.title,
+							'meta-description': bp.meta_description,
+							body: bp.body,
 						},
 					} as never,
 				]);
-				result.created = { slug: pg.slug, title: pg.title, addedToCms: true };
-			} else {
-				result.created = { slug: pg.slug, addedToCms: false, error: 'colecao de paginas nao encontrada' };
+				created.push({ slug: bp.slug });
 			}
-		} else if (operation === 'createBlogPosts') {
-			const posts = (data.posts as IDataObject[]) || [];
-			const blogCol = (await findCollection('blog')) || (await findCollection('post'));
-			if (blogCol) {
-				const created: IDataObject[] = [];
-				for (const bp of posts) {
-					await blogCol.addItems([
-						{
-							slug: bp.slug as string,
-							fieldData: {
-								title: bp.title,
-								'meta-description': bp.meta_description,
-								body: bp.body,
-							},
-						} as never,
-					]);
-					created.push({ slug: bp.slug });
-				}
-				result.itemsAdded = created.length;
-				result.items = created;
-			} else {
-				result.error = 'Colecao de blog nao encontrada.';
-			}
-		} else if (operation === 'publish') {
-			const pub = await framer.publish();
-			result.deployment = pub.deployment as unknown as IDataObject;
-			result.note = 'Preview publicado. Use operation=deploy com deployment.id para promover a producao.';
-		} else if (operation === 'deploy') {
-			const deploymentId = (data.deployment_id || data.deploymentId) as string | undefined;
-			if (!deploymentId) {
-				result.success = false;
-				result.error = 'operation=deploy requer deployment_id (obtido de operation=publish)';
-			} else {
-				result.deployed = (await framer.deploy(deploymentId)) as unknown as IDataObject;
-			}
-		} else if (operation === 'publishAndDeploy') {
-			const pub = await framer.publish();
-			result.deployment = pub.deployment as unknown as IDataObject;
-			result.deployed = (await framer.deploy(pub.deployment.id)) as unknown as IDataObject;
-			result.note = 'Publicado e promovido a producao em uma so chamada.';
+			result.itemsAdded = created.length;
+			result.items = created;
 		} else {
-			throw new NodeOperationError(ctx.getNode(), `Site Manager: operation nao suportada: ${operation}`, {
-				itemIndex,
-			});
+			result.error = 'Blog collection not found.';
 		}
-	} catch (err) {
-		result.success = false;
-		result.error = getErrorMessage(err);
+	} else if (operation === 'publish') {
+		const pub = await framer.publish();
+		result.deployment = pub.deployment as unknown as IDataObject;
+		result.note = 'Preview published. Use operation=deploy with deployment.id to promote to production.';
+	} else if (operation === 'deploy') {
+		const deploymentId = (data.deployment_id || data.deploymentId) as string | undefined;
+		if (!deploymentId) {
+			result.success = false;
+			result.error = 'operation=deploy requires deployment_id (obtained from operation=publish)';
+		} else {
+			result.deployed = (await framer.deploy(deploymentId)) as unknown as IDataObject;
+		}
+	} else if (operation === 'publishAndDeploy') {
+		const pub = await framer.publish();
+		result.deployment = pub.deployment as unknown as IDataObject;
+		result.deployed = (await framer.deploy(pub.deployment.id)) as unknown as IDataObject;
+		result.note = 'Published and promoted to production in a single call.';
+	} else {
+		throw new NodeOperationError(ctx.getNode(), `Site Manager: unsupported operation: ${operation}`, {
+			itemIndex,
+		});
 	}
 
 	return result;
