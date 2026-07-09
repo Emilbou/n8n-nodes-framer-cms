@@ -33,6 +33,22 @@ function getErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Item IDs are declared as a plain 'string' field, but n8n does not coerce
+ * expression-resolved values to match a field's declared type — an
+ * expression like {{ $json.ids }} pointing at an array is passed through
+ * as-is, so a plain .split(',') on it throws. Accept both shapes.
+ */
+function parseIdList(input: unknown): string[] {
+	if (Array.isArray(input)) {
+		return input.map((v) => String(v).trim()).filter(Boolean);
+	}
+	return String(input ?? '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+}
+
 function parseJsonArray(input: unknown, label: string, ctx: IExecuteFunctions): IDataObject[] {
 	let parsed = input;
 	if (typeof input === 'string') {
@@ -482,10 +498,10 @@ export class Framer implements INodeType {
 				type: 'json',
 				required: true,
 				default:
-					'[\n  {\n    "id": "optional-existing-id",\n    "fieldData": {\n      "title": "Example",\n      "slug": "example"\n    }\n  }\n]',
+					'[\n  {\n    "id": "optional-existing-id",\n    "slug": "example-slug",\n    "fieldData": {\n      "<field-id>": { "type": "string", "value": "Example" }\n    }\n  }\n]',
 				displayOptions: { show: { resource: ['item'], operation: ['addOrUpdate'] } },
 				description:
-					'Array of items to add or update. Items with an existing ID will be updated, others will be inserted.',
+					'Array of items to add or update. Include "id" to update an existing item, omit it to insert a new one. "slug" is a top-level property, not part of fieldData. Each fieldData entry is keyed by field ID (see Collection: Get Fields) and must include a "type" matching that field\'s type, e.g. { "type": "string", "value": "..." } or { "type": "formattedText", "value": "<p>...</p>" }.',
 			},
 			{
 				displayName: 'Item IDs',
@@ -592,20 +608,14 @@ export class Framer implements INodeType {
 						result = await collection.addItems(itemsPayload as never);
 					} else if (resource === 'item' && operation === 'remove') {
 						const id = this.getNodeParameter('collectionId', i) as string;
-						const ids = (this.getNodeParameter('itemIds', i) as string)
-							.split(',')
-							.map((s) => s.trim())
-							.filter(Boolean);
+						const ids = parseIdList(this.getNodeParameter('itemIds', i));
 						const collection = await getCollectionById(framer, id, this);
 						result = await (collection as unknown as { removeItems: (ids: string[]) => Promise<unknown> }).removeItems(
 							ids,
 						);
 					} else if (resource === 'item' && operation === 'setOrder') {
 						const id = this.getNodeParameter('collectionId', i) as string;
-						const ids = (this.getNodeParameter('itemIds', i) as string)
-							.split(',')
-							.map((s) => s.trim())
-							.filter(Boolean);
+						const ids = parseIdList(this.getNodeParameter('itemIds', i));
 						const collection = await getCollectionById(framer, id, this);
 						result = await collection.setItemOrder(ids);
 					} else if (resource === 'publish' && operation === 'getChanges') {
