@@ -49,6 +49,24 @@ function parseIdList(input: unknown): string[] {
 		.filter(Boolean);
 }
 
+/**
+ * framer-api's Field classes expose id/name/required as getters on the
+ * prototype (only `type` is an own property). JSON.stringify — which is
+ * effectively what happens when n8n serializes execute() output — only
+ * picks up own enumerable properties, so returning a Field instance
+ * directly drops id and name. Confirmed against a real project: raw
+ * fields serialized to `{"type":"string"}` only.
+ */
+function serializeField(field: unknown): IDataObject {
+	const f = field as { id: string; name: string; type: string; required?: boolean };
+	return {
+		id: f.id,
+		name: f.name,
+		type: f.type,
+		...(typeof f.required === 'boolean' ? { required: f.required } : {}),
+	};
+}
+
 function parseJsonArray(input: unknown, label: string, ctx: IExecuteFunctions): IDataObject[] {
 	let parsed = input;
 	if (typeof input === 'string') {
@@ -582,7 +600,7 @@ export class Framer implements INodeType {
 					} else if (resource === 'collection' && operation === 'getFields') {
 						const id = this.getNodeParameter('collectionId', i) as string;
 						const collection = await getCollectionById(framer, id, this);
-						result = await collection.getFields();
+						result = (await collection.getFields()).map(serializeField);
 					} else if (resource === 'collection' && operation === 'setFields') {
 						const id = this.getNodeParameter('collectionId', i) as string;
 						const fields = parseJsonArray(this.getNodeParameter('fieldsJson', i), 'Fields', this);
