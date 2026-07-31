@@ -9,6 +9,7 @@ n8n community node for the **Framer Server API** (`framer-api`). Provides CMS re
 - Full CMS access (collections, items, fields)
 - `publish()` and `deploy()` native (covers the gap of webhook-plugin integrations)
 - A compound **Site Manager** resource that accepts a v4-webhook-style JSON payload and runs multi-step read/audit/write flows (see below) — present in the upstream package but undocumented there
+- An **Agent** resource for canvas and rich text edits, including components embedded inside CMS rich text fields
 - Credential managed in n8n UI, encrypted in n8n's database — no env vars
 - WebSocket-based, designed for batch operations
 - Works offline of the Framer editor (no need to keep the project open)
@@ -99,6 +100,35 @@ This resource exists to be a drop-in target for existing v4-webhook-based automa
 - **Get Contributors** — authors who contributed to a version range
 - **Create Preview** — publish a preview link, returns deployment ID
 - **Deploy to Production** — promote a preview to production
+
+### Agent (Canvas and Rich Text)
+- **Apply Changes** — run project-update commands to create, update, move or remove nodes
+- **Get Node** — read a single node, including the rich text block structure of a CMS item
+- **Get System Prompt** — return the command syntax reference for *Apply Changes*
+
+`framer-api` exposes an agent namespace alongside the CMS API. It reaches parts of a project
+that the field-data API cannot express — most importantly **components embedded inside a rich
+text field** (`TextComponentInstance`), which Framer supports in the CMS but which cannot be
+represented in a `formattedText` value, since that value is a plain HTML/markdown string.
+
+A practical consequence: writing a `formattedText` field **removes** any components previously
+embedded in it, because they have no HTML representation. To attach components to an article,
+write the body first, then append the components:
+
+```
+Framer (Item: Add or Update)     // write the article body — this resets the field's blocks
+Framer (Agent: Get Node)         // read attributes."$control__<fieldName>" and count the blocks
+Framer (Agent: Apply Changes)    // append components starting at that block index
+```
+
+```
++TextComponentInstance faq1 component="<componentId>" parent="<itemId>/<fieldId>" position="<blockCount>";
+SET faq1 $control__question="..." $control__answer="...";
+```
+
+Two things to watch for: the `+…` commands **append** rather than replace, so re-running the same
+call duplicates the components; and a `position` past the current end of the field can drop the
+field's existing content. Always derive `position` from a fresh *Get Node* read.
 
 ## Example: full publish flow
 
