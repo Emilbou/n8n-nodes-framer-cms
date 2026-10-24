@@ -364,8 +364,34 @@ export class Framer implements INodeType {
 					{ name: 'Collection', value: 'collection' },
 					{ name: 'Item', value: 'item' },
 					{ name: 'Publish', value: 'publish' },
+					{ name: 'Agent (Canvas and Rich Text)', value: 'agent' },
 				],
 				default: 'siteManager',
+			},
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: { show: { resource: ['agent'] } },
+				options: [
+					{
+						name: 'Apply Changes',
+						value: 'applyChanges',
+						action: 'Create update move or remove nodes with project update commands',
+					},
+					{
+						name: 'Get Node',
+						value: 'getNode',
+						action: 'Read a single node including CMS rich text block structure',
+					},
+					{
+						name: 'Get System Prompt',
+						value: 'getSystemPrompt',
+						action: 'Return the command syntax reference for apply changes',
+					},
+				],
+				default: 'applyChanges',
 			},
 			{
 				displayName: 'Operation',
@@ -565,6 +591,38 @@ export class Framer implements INodeType {
 				displayOptions: { show: { resource: ['publish'], operation: ['getContributors'] } },
 				description: 'Optional. Ending version number. Leave 0 for default.',
 			},
+			{
+				displayName: 'Commands (DSL)',
+				name: 'dsl',
+				type: 'string',
+				typeOptions: { rows: 6 },
+				required: true,
+				default: '',
+				placeholder:
+					'+TextComponentInstance faq1 component="AbC123" parent="<itemId>/<fieldId>" position="3";',
+				displayOptions: { show: { resource: ['agent'], operation: ['applyChanges'] } },
+				description:
+					'Project-update commands, each terminated with ";". Run Agent: Get System Prompt for the full syntax. Result reports per-command errors without blocking the remaining commands.',
+			},
+			{
+				displayName: 'Node ID',
+				name: 'agentNodeId',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['getNode'] } },
+				description:
+					'ID of the node to read. For a CMS item, the rich text block structure is returned under attributes."$control__&lt;fieldName&gt;".',
+			},
+			{
+				displayName: 'Page Path',
+				name: 'pagePath',
+				type: 'string',
+				default: '',
+				placeholder: '/about',
+				displayOptions: { show: { resource: ['agent'], operation: ['applyChanges', 'getNode'] } },
+				description: 'Optional. Target page path. Leave empty to use the active page.',
+			},
 		],
 	};
 
@@ -589,6 +647,16 @@ export class Framer implements INodeType {
 						const input = (typeof rawInput === 'string' ? JSON.parse(rawInput) : rawInput || {}) as IDataObject;
 						const data = (input.body as IDataObject) || input;
 						result = await runSiteManager(framer, operation, data, this, i);
+					} else if (resource === 'agent' && operation === 'applyChanges') {
+						const dsl = this.getNodeParameter('dsl', i) as string;
+						const pagePath = (this.getNodeParameter('pagePath', i, '') as string).trim();
+						result = await framer.agent.applyChanges(dsl, pagePath ? { pagePath } : undefined);
+					} else if (resource === 'agent' && operation === 'getNode') {
+						const nodeId = this.getNodeParameter('agentNodeId', i) as string;
+						const pagePath = (this.getNodeParameter('pagePath', i, '') as string).trim();
+						result = await framer.agent.getNode({ id: nodeId }, pagePath ? { pagePath } : undefined);
+					} else if (resource === 'agent' && operation === 'getSystemPrompt') {
+						result = await framer.agent.getSystemPrompt();
 					} else if (resource === 'project' && operation === 'getInfo') {
 						result = await framer.getProjectInfo();
 					} else if (resource === 'collection' && operation === 'getMany') {
